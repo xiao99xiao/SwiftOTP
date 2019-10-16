@@ -32,7 +32,7 @@
 //  THE SOFTWARE.
 
 import Foundation
-import CryptoSwift
+import CryptoKit
 
 internal class Generator {
 
@@ -47,22 +47,27 @@ internal class Generator {
 	/// - returns: One time password string, nil if error
 	func generateOTP(secret: Data, algorithm: OTPAlgorithm = .sha1, counter: UInt64, digits: Int = 6) -> String? {
 		// Get byte array of secret key
-		let key = secret.bytes
+		let key = SymmetricKey.init(data: secret) //secret.bytes
 		
 		// HMAC message data from counter as big endian
 		let counterMessage = counter.bigEndian.data
 		
 		// HMAC hash counter data with secret key
-		let hmac = try! HMAC(key: key, variant: algorithm.hmacVariant).authenticate(counterMessage.bytes)
-		
-		// Get last 4 bits of hash as offset
-		let offset = Int((hmac.last ?? 0x00) & 0x0f)
-		
-		// Get 4 bytes from the hash from [offset] to [offset + 3]
-		let truncatedHMAC = Array(hmac[offset...offset + 3])
-		
-		// Convert byte array of the truncated hash to data
-		let data =  Data(truncatedHMAC)
+		let data: Data
+		switch algorithm {
+		case .sha1:
+			let hmac = HMAC<Insecure.SHA1>.authenticationCode(for: counterMessage, using: key)
+			let truncatedHMAC = hmac.suffix(4)
+			data =  Data(truncatedHMAC)
+		case .sha256:
+			let hmac = HMAC<SHA256>.authenticationCode(for: counterMessage, using: key)
+			let truncatedHMAC = hmac.suffix(4)
+			data =  Data(truncatedHMAC)
+		case .sha512:
+			let hmac = HMAC<SHA512>.authenticationCode(for: counterMessage, using: key)
+			let truncatedHMAC = hmac.suffix(4)
+			data =  Data(truncatedHMAC)
+		}
 		
 		// Convert data to UInt32
 		var number = UInt32(strtoul(data.toHexString(), nil, 16))
@@ -85,4 +90,10 @@ internal class Generator {
 		let prefixedZeros = String(repeatElement("0", count: (digits - strNum.count)))
 		return (prefixedZeros + strNum)
 	}
+}
+
+extension Data {
+    func toHexString() -> String {
+        return map { String(format: "%02hhx", $0) }.joined()
+    }
 }

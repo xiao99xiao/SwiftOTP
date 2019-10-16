@@ -105,3 +105,9 @@ class GeneratorTests: XCTestCase {
 		XCTAssertEqual(Generator.shared.generateOTP(secret: data, algorithm: .sha512, counter: 2, digits: 8), "34045732")
 	}
 }
+
+extension Data {
+    public init(hex: String) {
+		self.init(Array<UInt8>(hex: hex))
+    }
+}
